@@ -1,0 +1,14 @@
+version: '3.9'
+
+services:
+  bot:
+    build: .
+    container_name: tg-bot
+    restart: always
+    environment:
+      - API_TOKEN=8552319213:AAHrIJpsZAqn7VB99OJ8W1LSmWOPZ7YLIpY
+
+networks:
+  default:
+    external: true
+    name: kafka-network
