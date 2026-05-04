@@ -55,11 +55,11 @@ func LoadConfig() (*Config, error) {
 	intChatID, _ := strconv.ParseInt(chatID, 10, 64)
 	return &Config{
 		DB: DBConfig{
-			Host:     "localhost",
+			Host:     "host.docker.internal",
 			Port:     5432,
 			User:     "postgres",
-			Password: "postgres",
-			Name:     "UniversitiesNews",
+			Password: "goose",
+			Name:     "News",
 		},
 		KafkaCfg: KafkaConfig{
 			KafkaBrokers: os.Getenv("KAFKA_BROKER"),

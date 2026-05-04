@@ -7,6 +7,8 @@ services:
     restart: always
     environment:
       - API_TOKEN=8552319213:AAHrIJpsZAqn7VB99OJ8W1LSmWOPZ7YLIpY
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   default:

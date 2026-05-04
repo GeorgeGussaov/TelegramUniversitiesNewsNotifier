@@ -23,86 +23,12 @@ func NewTelegramNotifier(bot *tgbotapi.BotAPI, chatID int64) *TelegramNotifier {
 		chatID: chatID,
 	}
 }
-// func (t *TelegramNotifier) Notify(news models.News) error {
-// 	caption := formatMessage(news)
 
-// 	// если картинок нет → обычное сообщение
-// 	if len(news.ImagesLinks) == 0 {
-// 		msg := tgbotapi.NewMessage(t.chatID, caption)
-// 		msg.ParseMode = "Markdown"
-
-// 		_, err := t.bot.Send(msg)
-// 		return err
-// 	}
-
-// 	var media []interface{}
-
-// 	for i, imgURL := range news.ImagesLinks {
-// 		log.Printf("downloading image #%d: %s", i+1, imgURL)
-
-// 		resp, err := http.Get(imgURL)
-// 		if err != nil {
-// 			log.Printf("failed download image #%d: %v", i+1, err)
-// 			continue
-// 		}
-
-// 		if resp.StatusCode != http.StatusOK {
-// 			log.Printf("bad status for image #%d: %d", i+1, resp.StatusCode)
-// 			resp.Body.Close()
-// 			continue
-// 		}
-
-// 		contentType := resp.Header.Get("Content-Type")
-// 		if !strings.HasPrefix(contentType, "image/") {
-// 			log.Printf("bad content-type for image #%d: %s", i+1, contentType)
-// 			resp.Body.Close()
-// 			continue
-// 		}
-
-// 		photo := tgbotapi.NewInputMediaPhoto(
-// 			tgbotapi.FileReader{
-// 				Name:   fmt.Sprintf("image_%d.jpg", i+1),
-// 				Reader: resp.Body,
-// 			},
-// 		)
-
-// 		// caption только у первой валидной картинки
-// 		if len(media) == 0 {
-// 			photo.Caption = caption
-// 			photo.ParseMode = "Markdown"
-// 		}
-
-// 		media = append(media, photo)
-
-// 		// Telegram максимум 10 файлов
-// 		if len(media) == 10 {
-// 			break
-// 		}
-// 	}
-
-// 	// если все картинки битые то отправляем просто текст
-// 	if len(media) == 0 {
-// 		msg := tgbotapi.NewMessage(t.chatID, caption)
-// 		msg.ParseMode = "Markdown"
-
-// 		_, err := t.bot.Send(msg)
-// 		return err
-// 	}
-
-// 	msg := tgbotapi.NewMediaGroup(t.chatID, media)
-
-// 	_, err := t.bot.SendMediaGroup(msg)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
 func (t *TelegramNotifier) Notify(news models.News) error {
     if len(news.ImagesLinks) == 0 {
 		caption := formatMessage(news, false)
         msg := tgbotapi.NewMessage(t.chatID, caption)
-        msg.ParseMode = "Markdown"
+        msg.ParseMode = "HTML"
         _, err := t.bot.Send(msg)
         return err
     }
@@ -131,7 +57,6 @@ func (t *TelegramNotifier) Notify(news models.News) error {
             continue
         }
 
-        // ✅ Читаем всё тело в буфер — это и есть фикс
         imgData, err := io.ReadAll(resp.Body)
         resp.Body.Close()
         if err != nil {
@@ -148,7 +73,7 @@ func (t *TelegramNotifier) Notify(news models.News) error {
 
         if len(media) == 0 {
             photo.Caption = caption
-            photo.ParseMode = "Markdown"
+            photo.ParseMode = "HTML"
         }
 
         media = append(media, photo)
@@ -160,7 +85,7 @@ func (t *TelegramNotifier) Notify(news models.News) error {
 
     if len(media) == 0 {
         msg := tgbotapi.NewMessage(t.chatID, caption)
-        msg.ParseMode = "Markdown"
+        msg.ParseMode = "HTML"
         _, err := t.bot.Send(msg)
         return err
     }
@@ -169,24 +94,33 @@ func (t *TelegramNotifier) Notify(news models.News) error {
     _, err := t.bot.SendMediaGroup(msg)
     return err
 }
+
+func escapeHTML(text string) string {
+    replacer := strings.NewReplacer(
+        `&`, `&amp;`,
+        `<`, `&lt;`,
+        `>`, `&gt;`,
+    )
+    return replacer.Replace(text)
+}
+
 func formatMessage(n models.News, hasImages bool) string {
     maxCaption := 4096
     if hasImages {
         maxCaption = 1024
     }
 
-    // сам текст занимает не весь лимит — нужно учесть остальные поля
-    overhead := len(fmt.Sprintf("🏛️ *%s*\n📰 *%s*\n\n📅 %s\n\n\n\n📎 %s",
+    overhead := len(fmt.Sprintf("🏛️ <b>%s</b>\n📰 <b>%s</b>\n\n📅 %s\n\n\n\n📎 %s",
         n.Source, n.Title, n.Date, n.Link))
     textLimit := maxCaption - overhead
 
-    text := truncateByParagraphs(n.Text, textLimit)
+    text := truncateByParagraphs(escapeHTML(n.Text), textLimit)
 
     return fmt.Sprintf(
-        "🏛️ *%s*\n📰 *%s*\n\n📅 %s\n\n%s\n\n📎 %s",
-        n.Source,
-        n.Title,
-        n.Date,
+        "🏛️ <b>%s</b>\n📰 <b>%s</b>\n\n📅 %s\n\n%s\n\n📎 <a href=\"%s\">Подробнее тут</a>",
+        escapeHTML(n.Source),
+        escapeHTML(n.Title),
+        escapeHTML(n.Date),
         text,
         n.Link,
     )
